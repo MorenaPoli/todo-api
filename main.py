@@ -47,3 +47,40 @@ def create_task(task: Task):
     last_id = cur.lastrowid
     conn.close()
     return {"id": last_id, "title": task.title, "done": task.done}
+
+@app.put("/tasks/{task_id}", response_model=Task)
+def update_task(task_id: int, task: Task):
+    conn = sqlite3.connect(DB)
+    cur = conn.cursor()
+    
+    # Verificar que la tarea existe
+    cur.execute("SELECT id FROM tasks WHERE id = ?", (task_id,))
+    if not cur.fetchone():
+        conn.close()
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    # Actualizar la tarea
+    cur.execute("UPDATE tasks SET title = ?, done = ? WHERE id = ?", 
+                (task.title, int(task.done), task_id))
+    conn.commit()
+    conn.close()
+    
+    return {"id": task_id, "title": task.title, "done": task.done}
+
+@app.delete("/tasks/{task_id}")
+def delete_task(task_id: int):
+    conn = sqlite3.connect(DB)
+    cur = conn.cursor()
+    
+    # Verificar que la tarea existe
+    cur.execute("SELECT id FROM tasks WHERE id = ?", (task_id,))
+    if not cur.fetchone():
+        conn.close()
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    # Eliminar la tarea
+    cur.execute("DELETE FROM tasks WHERE id = ?", (task_id,))
+    conn.commit()
+    conn.close()
+    
+    return {"message": f"Task {task_id} deleted successfully"}
