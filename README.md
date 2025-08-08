@@ -2,7 +2,7 @@
 
 A simple and elegant REST API for managing tasks built with **FastAPI** and **SQLite**.
 
-🚀 **Live Demo**: *[Coming soon - deploy in progress]*
+🚀 **Live Demo**: https://todo-api-ycrl.onrender.com/docs
 
 ## ✨ Features
 
