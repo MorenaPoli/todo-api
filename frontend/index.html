@@ -10,15 +10,68 @@
     <div class="container">
         <div class="glass-card">
             <h1>Todo App</h1>
-            <form id="taskForm">
+
+            <!-- Authentication section -->
+            <div id="authSection">
+                <h2>Login</h2>
+                <form id="loginForm">
+                    <input type="text" id="loginUsername" placeholder="Username" required />
+                    <input type="password" id="loginPassword" placeholder="Password" required />
+                    <button type="submit">Login</button>
+                </form>
+                <p>
+                    ¿No tienes cuenta? <a href="#" id="showSignup">Regístrate</a>
+                </p>
+                <form id="signupForm" style="display: none;">
+                    <input type="text" id="signupUsername" placeholder="Username" required />
+                    <input type="password" id="signupPassword" placeholder="Password" required />
+                    <button type="submit">Sign up</button>
+                    <p>
+                        ¿Ya tienes cuenta? <a href="#" id="showLogin">Inicia sesión</a>
+                    </p>
+                </form>
+            </div>
+
+            <!-- New task form (hidden until logged in) -->
+            <form id="taskForm" style="display: none;">
                 <input
                     type="text"
                     id="title"
-                    placeholder="New task..."
+                    placeholder="New task title"
                     required
                 />
+                <input type="date" id="dueDate" />
+                <input type="text" id="category" placeholder="Category" />
+                <select id="priority">
+                    <option value="medium" selected>Medium</option>
+                    <option value="high">High</option>
+                    <option value="low">Low</option>
+                </select>
                 <button type="submit">Add</button>
             </form>
+
+            <!-- Filters and search section (shown after login) -->
+            <div id="filterSection" style="display: none;" class="filters">
+                <select id="filterBy">
+                    <option value="">All tasks</option>
+                    <option value="overdue">Overdue</option>
+                    <option value="today">Today</option>
+                    <option value="week">This week</option>
+                    <option value="completed">Completed</option>
+                    <option value="pending">Pending</option>
+                </select>
+                <input type="text" id="filterCategory" placeholder="Category" />
+                <select id="filterPriority">
+                    <option value="">All priorities</option>
+                    <option value="high">High</option>
+                    <option value="medium">Medium</option>
+                    <option value="low">Low</option>
+                </select>
+                <button id="applyFilters">Filter</button>
+                <input type="text" id="searchQuery" placeholder="Search..." />
+                <button id="searchBtn">Search</button>
+            </div>
+
             <ul id="taskList"></ul>
         </div>
     </div>
