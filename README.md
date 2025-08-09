@@ -6,11 +6,19 @@ A simple and elegant REST API for managing tasks built with **FastAPI** and **SQ
 
 ## ✨ Features
 
+The API has grown beyond a simple CRUD service. It now includes several
+enhanced features such as task metadata and analytics. Highlights include:
+
 - ✅ Complete CRUD operations (Create, Read, Update, Delete)
-- ✅ Automatic interactive API documentation
+- ✅ Automatic interactive API documentation (Swagger/OpenAPI)
 - ✅ SQLite database with automatic initialization
 - ✅ Input validation with Pydantic models
 - ✅ RESTful design principles
+- ✅ Due dates to track deadlines
+- ✅ Categories/tags to group related tasks
+- ✅ Priority levels (high/medium/low)
+- ✅ Search endpoints to quickly find tasks
+- ✅ Statistics and dashboard endpoints for insights into your productivity
 
 ## 🛠️ Tech Stack
 
@@ -108,12 +116,21 @@ todo-api/
 
 ## 🚧 Future Improvements
 
-- [ ] Add user authentication
-- [ ] Add task categories/tags
-- [ ] Add due dates
-- [ ] Add task priority levels
-- [ ] Add search functionality
-- [ ] Add pagination
+The following improvements are planned for future versions. Items marked as
+completed have already been implemented in the current code base:
+
+- [ ] **User authentication** – protect endpoints so only authenticated
+  users can create, update, or delete tasks.
+- [x] **Task categories/tags** – tasks can now be assigned an optional
+  category to group related items.
+- [x] **Due dates** – tasks may include an optional `due_date` in
+  `YYYY-MM-DD` format.
+- [x] **Task priority levels** – tasks support `high`, `medium`, and
+  `low` priority.
+- [x] **Search functionality** – the `/search` endpoint allows
+  full‐text search in titles and categories.
+- [ ] **Pagination** – support for limiting and offsetting results when
+  fetching large lists of tasks.
 
 ## 🎉 Demo
 
