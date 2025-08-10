@@ -30,10 +30,6 @@ app = FastAPI(
 )
 DB = "todo.db"
 
-# Mount the frontend static directory. This allows serving CSS and JS files
-# from `/static/...` and the index page from `/app`. The directory path is
-# resolved relative to this file so it works regardless of the working
-# directory.
 frontend_path = os.path.join(os.path.dirname(__file__), "frontend")
 if os.path.isdir(frontend_path):
     app.mount("/static", StaticFiles(directory=frontend_path), name="static")
@@ -43,7 +39,11 @@ if os.path.isdir(frontend_path):
         """Serve the front‑end application."""
         index_file = os.path.join(frontend_path, "index.html")
         with open(index_file, "r", encoding="utf-8") as f:
-            return f.read()
+            content = f.read()
+        # Agregar cabeceras de caché
+        from fastapi import Response
+        headers = {"Cache-Control": "public, max-age=3600"}
+        return Response(content, media_type="text/html", headers=headers)
 
 # Modelos Pydantic
 class Task(BaseModel):
@@ -279,9 +279,9 @@ def get_tasks(
         description="Sort by: 'date', 'category', 'priority', 'created'",
     ),
     limit: Optional[int] = Query(
-        None,
+        50,
         ge=1,
-        description="Maximum number of tasks to return (optional).",
+        description="Maximum number of tasks to return (default: 50).",
     ),
     offset: int = Query(
         0,
@@ -290,11 +290,10 @@ def get_tasks(
     ),
 ):
     conn = sqlite3.connect(DB)
+    conn.row_factory = sqlite3.Row
     cur = conn.cursor()
-    
     base_query = "SELECT id, title, done, due_date, category, priority FROM tasks WHERE 1=1"
     params = []
-    
     # Filtros por estado
     if filter_by == "overdue":
         base_query += " AND due_date < ? AND done = 0"
@@ -313,17 +312,14 @@ def get_tasks(
     elif filter_by in ["high", "medium", "low"]:
         base_query += " AND priority = ?"
         params.append(filter_by)
-    
     # Filtro por categoría
     if category:
         base_query += " AND category = ?"
         params.append(category)
-        
     # Filtro por prioridad
     if priority:
         base_query += " AND priority = ?"
         params.append(priority)
-    
     # Ordenamiento
     if sort_by == "date":
         base_query += " ORDER BY due_date IS NULL, due_date ASC, id DESC"
@@ -333,17 +329,13 @@ def get_tasks(
         base_query += " ORDER BY CASE priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 ELSE 4 END, due_date ASC"
     elif sort_by == "created":
         base_query += " ORDER BY id DESC"
-    
-    # Apply pagination if limit is specified
-    if limit is not None:
-        base_query += " LIMIT ? OFFSET ?"
-        params.extend([limit, offset])
-
+    # Paginación por defecto
+    base_query += " LIMIT ? OFFSET ?"
+    params.extend([limit, offset])
     cur.execute(base_query, params)
     rows = cur.fetchall()
     conn.close()
-    
-    return [{"id": r[0], "title": r[1], "done": bool(r[2]), "due_date": r[3], "category": r[4], "priority": r[5]} for r in rows]
+    return [{"id": r["id"], "title": r["title"], "done": bool(r["done"]), "due_date": r["due_date"], "category": r["category"], "priority": r["priority"]} for r in rows]
 
 @app.post("/tasks", response_model=Task)
 def create_task(task: TaskCreate):
@@ -591,9 +583,9 @@ def search_tasks(
     in_title: bool = Query(True, description="Search in title"),
     in_category: bool = Query(True, description="Search in category"),
     limit: Optional[int] = Query(
-        None,
+        50,
         ge=1,
-        description="Maximum number of results to return (optional).",
+        description="Maximum number of results to return (default: 50).",
     ),
     offset: int = Query(
         0,
@@ -603,44 +595,132 @@ def search_tasks(
 ):
     """Búsqueda avanzada en tareas con paginación opcional"""
     conn = sqlite3.connect(DB)
+    conn.row_factory = sqlite3.Row
     cur = conn.cursor()
-
     conditions: List[str] = []
     params: List[str] = []
-
     if in_title:
         conditions.append("title LIKE ?")
         params.append(f"%{q}%")
-
     if in_category:
         conditions.append("category LIKE ?")
         params.append(f"%{q}%")
-
     where_clause = " OR ".join(conditions)
     base_query = f"SELECT id, title, done, due_date, category, priority FROM tasks WHERE ({where_clause}) ORDER BY done ASC, priority = 'high' DESC"
-
-    # Apply pagination if a limit is provided
-    if limit is not None:
-        base_query += " LIMIT ? OFFSET ?"
-        params.extend([limit, offset])
-
+    base_query += " LIMIT ? OFFSET ?"
+    params.extend([limit, offset])
     cur.execute(base_query, params)
     rows = cur.fetchall()
     conn.close()
-
     results = [
         {
-            "id": r[0],
-            "title": r[1],
-            "done": bool(r[2]),
-            "due_date": r[3],
-            "category": r[4],
-            "priority": r[5],
+            "id": r["id"],
+            "title": r["title"],
+            "done": bool(r["done"]),
+            "due_date": r["due_date"],
+            "category": r["category"],
+            "priority": r["priority"],
         }
         for r in rows
     ]
-
     return {"query": q, "results_count": len(results), "results": results}
+
+@app.get("/analytics/productivity")
+def get_productivity_analytics(
+    timeframe: Optional[str] = Query("week", description="Timeframe: 'week', 'month', or 'all'")
+):
+    """Obtener datos de productividad para gráficos y análisis"""
+    conn = sqlite3.connect(DB)
+    cur = conn.cursor()
+    
+    # Determinar el rango de fechas
+    if timeframe == "week":
+        start_date = date.today() - timedelta(days=7)
+    elif timeframe == "month":
+        start_date = date.today() - timedelta(days=30)
+    def init_db():
+        conn = sqlite3.connect(DB)
+        cur = conn.cursor()
+        cur.execute("PRAGMA table_info(tasks)")
+        columns = [column[1] for column in cur.fetchall()]
+        if 'category' not in columns or 'due_date' not in columns or 'priority' not in columns:
+            conn.execute("DROP TABLE IF EXISTS tasks")
+            print("🔄 Recreating tasks table with dates, categories, and priorities...")
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS tasks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                done INTEGER NOT NULL DEFAULT 0,
+                due_date TEXT,
+                category TEXT,
+                priority TEXT DEFAULT 'medium',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                hashed_password TEXT NOT NULL
+            );
+            """
+        )
+        # Sugerencia de índices para optimizar búsquedas
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_tasks_category ON tasks(category)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_tasks_priority ON tasks(priority)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_tasks_due_date ON tasks(due_date)")
+        conn.commit()
+        conn.close()
+        print("✅ Clean database initialized successfully!")
+        }
+    
+    # Estadísticas por prioridad
+    cur.execute("""
+        SELECT priority,
+               COUNT(*) as total,
+               SUM(CASE WHEN done = 1 THEN 1 ELSE 0 END) as completed
+        FROM tasks 
+        WHERE priority IS NOT NULL AND DATE(created_at) >= ?
+        GROUP BY priority
+    """, (str(start_date),))
+    
+    priority_stats = {}
+    for row in cur.fetchall():
+        priority_stats[row[0]] = {
+            "total": row[1],
+            "completed": row[2]
+        }
+    
+    # Estadísticas generales de completitud
+    cur.execute("""
+        SELECT 
+            COUNT(*) as total,
+            SUM(CASE WHEN done = 1 THEN 1 ELSE 0 END) as completed,
+            SUM(CASE WHEN done = 0 THEN 1 ELSE 0 END) as pending,
+            SUM(CASE WHEN due_date < ? AND done = 0 THEN 1 ELSE 0 END) as overdue
+        FROM tasks 
+        WHERE DATE(created_at) >= ?
+    """, (str(date.today()), str(start_date)))
+    
+    general_stats = cur.fetchone()
+    completion_stats = {
+        "completed": general_stats[1],
+        "pending": general_stats[2],
+        "overdue": general_stats[3]
+    }
+    
+    conn.close()
+    
+    return {
+        "timeframe": timeframe,
+        "daily_productivity": daily_data,
+        "category_analytics": category_stats,
+        "priority_analytics": priority_stats,
+        "completion_overview": completion_stats
+    }
 
 # ------------------- Authentication Endpoints -------------------
 
