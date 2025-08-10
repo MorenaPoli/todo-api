@@ -675,7 +675,7 @@ def get_productivity_analytics(
         conn.commit()
         conn.close()
         print("✅ Clean database initialized successfully!")
-        }
+        
     
     # Estadísticas por prioridad
     cur.execute("""
