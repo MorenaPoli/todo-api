@@ -2,6 +2,9 @@ from fastapi import FastAPI, HTTPException, Query, Depends
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.security import OAuth2PasswordBearer
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+
 
 # Optional imports: these third‑party libraries may not be available in
 # restricted environments (e.g. during testing). We attempt to import
@@ -238,7 +241,21 @@ def startup():
     init_db()
 
 # Endpoint principal
-@app.get("/")
+@app.get("/api/health", tags=["health"])
+def health():
+    return {
+        "message": "Todo API is running - Simple & Clean! 🚀",
+        "docs": "/docs",
+        "features": [
+            "✅ CRUD",
+            "📅 Due dates",
+            "🏷️ Categories",
+            "🎯 Priorities",
+            "🔍 Search",
+            "📊 Stats"
+        ]
+    }
+
 def read_root():
     """
     Root endpoint with a friendly status message.
@@ -766,3 +783,7 @@ def login(user_login: UserLogin):
 async def read_users_me(current_user: User = Depends(get_current_user)):
     """Return the currently authenticated user."""
     return current_user
+
+# Sirve la carpeta 'frontend' como sitio estático en "/"
+app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
+
